@@ -1,0 +1,10 @@
+pytest
+fastapi
+uvicorn
+python-multipart
+
+# Add whichever embedding / model libraries you choose to use, e.g.:
+# sentence-transformers
+# openai
+# anthropic
+# ollama

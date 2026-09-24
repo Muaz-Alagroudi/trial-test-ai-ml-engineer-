@@ -1,0 +1,8 @@
+{
+  "doc1.txt": {"acl": ["finance"]},
+  "doc2.txt": {"acl": ["all"]},
+  "doc3.txt": {"acl": ["propteam"]},
+  "doc4.txt": {"acl": ["finance"]},
+  "doc5.txt": {"acl": ["all"]},
+  "doc6.txt": {"acl": ["propteam", "finance"]}
+}
