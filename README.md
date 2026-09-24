@@ -1,12 +1,4 @@
-# Technical Trial Test: AI/ML Engineer (~2h10m)
-
-This tests whether you can build a system that actually uses a language model as a working
-component — real retrieval, real prompt construction, tool-calling through the model's own
-function-calling interface, and handling what a real model actually does, including getting
-it wrong. It is **not** testing whether you use an AI coding assistant (Copilot, ChatGPT,
-etc.) to help write your solution — that's irrelevant here and you're free to use one. It
-still skips MLX/Apple Silicon deployment specifics, since that depends on hardware you may
-not own.
+# Technical Trial Test: AI/ML Engineer 
 
 ## Setup (10 min)
 
@@ -113,13 +105,6 @@ Two or three sentences each, in this README:
   constrained rather than calling a hosted API freely?
 - What's the one part of your solution you're least confident is airtight, and why?
 
-## What NOT to worry about
-
-Whether you used an AI coding assistant to help write your solution (irrelevant to what
-this test checks), which specific embedding model, LLM, or tool-calling vendor convention
-you pick, any UI beyond the one provided in `app/web.py`, edge cases beyond the given data,
-and code polish under time pressure. ~2 hours is tight by design — we're grading judgment
-on the parts that matter, not completeness.
 
 ## Submitting
 
