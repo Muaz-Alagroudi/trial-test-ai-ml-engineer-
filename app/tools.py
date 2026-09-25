@@ -7,12 +7,27 @@ via its own native function-calling interface (OpenAI/Anthropic-style
 tool schemas, or Ollama's tool support for models like qwen2.5 / llama3.1).
 """
 
+import csv
+
+
+def load_property_ids(csv_path: str = "data/properties.csv") -> dict:
+    """Map each property name in properties.csv to its numeric property_id."""
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        return {row["name"]: int(row["property_id"]) for row in csv.DictReader(f)}
+
 
 def calculate_noi(property_id: int, period: str, csv_path: str = "data/properties.csv") -> float:
     """Return revenue - operating_expenses for the given property_id and
     period, read directly from data/properties.csv. No model involved.
+
+    Raises ValueError if no row matches, so the caller can report the
+    error back to the model instead of returning a made-up number.
     """
-    raise NotImplementedError("Read properties.csv and compute NOI deterministically")
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if int(row["property_id"]) == property_id and row["period"] == period:
+                return float(row["revenue"]) - float(row["operating_expenses"])
+    raise ValueError(f"no data for property_id={property_id}, period={period!r}")
 
 
 # A provider-agnostic description of this tool, in JSON-Schema-ish shape.

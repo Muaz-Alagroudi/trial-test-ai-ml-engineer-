@@ -1,4 +1,4 @@
-.PHONY: build up test
+.PHONY: build up test ingest
 
 IMAGE_NAME := trial-test-ai-ml-engineer
 
@@ -14,3 +14,6 @@ up: build
 
 test: build
 	docker run --rm -v "$(CURDIR)":/app $(ENV_FILE) $(IMAGE_NAME) pytest
+
+ingest: build
+	docker run --rm -v "$(CURDIR)":/app $(ENV_FILE) $(IMAGE_NAME) python -m app.retrieval
