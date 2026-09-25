@@ -84,12 +84,26 @@ format most APIs require.
 Run the 5 queries in `eval/queries.json` (one is deliberately unanswerable) through your
 pipeline as each listed user — using `make up` and the provided UI, or by calling
 `answer_question()` directly, whichever is faster for you — and produce a short table in
-this README: query, whether the
-right chunk was retrieved, whether the answer was grounded, whether tool-calling worked
-correctly for the NOI query, and — this is the point — what the real model actually got
-wrong, if anything (ignored an instruction, formatted oddly, tried to answer the NOI itself,
-hedged when it shouldn't have). A model that behaves perfectly on all 5 is a valid result —
-say so explicitly rather than leaving it implied.
+this README with one row per query. For each row, report:
+
+- **Retrieved evidence** — the source doc and chunk ID of the top chunk(s) actually
+  returned by `retrieve()`, plus a short excerpt of the chunk text (a sentence or two is
+  enough). For the unanswerable query, show what *was* retrieved, even if it's irrelevant.
+- **Grounded?** — whether the answer was grounded, and what `is_grounded()` returned.
+- **Tool call** — whether the model actually requested a tool call, for *every* query (not
+  just the NOI one). If it did, give the tool name, the arguments the model passed, and the
+  value `calculate_noi()` returned, and say whether the number in the final answer matches
+  that value.
+- **What the model got wrong** — this is the point: ignored an instruction, formatted
+  oddly, tried to answer the NOI itself, called the tool when it shouldn't have, hedged
+  when it shouldn't have.
+
+Also commit the raw output of your eval run as `eval/results.json`: for each query, the
+retrieved chunks (with IDs), any tool-call messages exchanged with the model, and the
+final answer.
+
+A model that behaves perfectly on all 5 is a valid result. Say so explicitly rather than
+leaving it implied.
 
 Also fill in the two assertions in `tests/test_permissions.py` proving `retrieve()` never
 returns an unauthorized chunk for `user_c` versus `user_a`/`user_b`. Hard requirement, but
