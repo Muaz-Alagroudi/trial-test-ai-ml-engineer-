@@ -109,6 +109,39 @@ Also fill in the two assertions in `tests/test_permissions.py` proving `retrieve
 returns an unauthorized chunk for `user_c` versus `user_a`/`user_b`. Hard requirement, but
 deliberately light — not a full test suite.
 
+### Task 3 results
+
+Run setup: `llama3.2` via Ollama for chat, `all-minilm` for embeddings, `top_k=3`, default
+sampling, `answer_question()` called directly per query as the listed user. The raw run
+(retrieved chunks, every message sent to and returned by the model, final result) is in
+`eval/results.json`. The permission tests in `tests/test_permissions.py` pass (2 passed).
+
+| Query | Retrieved evidence (top chunk first) | Grounded? | Tool call | What the model got wrong |
+|---|---|---|---|---|
+| **q1** user_a: Maple Ridge revenue Q3 2026 | `doc1.txt#0`: "Q3 2026 financial summary for Maple Ridge Apartments: total revenue $412,000, operating expenses $158,000." Also `doc4.txt#0`, `doc6.txt#0`. | Yes, `is_grounded()` = `True`. Answer: revenue was $412,000 [doc1.txt#0]. | Yes, not needed. `calculate_noi(property_id="1", period="Q3-2026")` returned 254,000.00. The answer correctly ignores it and uses $412,000 from the document. | Called the NOI tool on a revenue question. Leaked the internal id ("property_id 1") into the answer instead of the property name. |
+| **q2** user_b: Unit 4B HVAC repair | `doc3.txt#0`: "Maintenance log, Maple Ridge Apartments, Unit 4B: HVAC system repaired and inspected in March 2026." Also `doc6.txt#0`, `doc2.txt#0`. | Yes, `True`. Answer: March 2026 [doc3.txt#0]. | Yes, not needed. `calculate_noi(property_id="1", period="March 2026")` returned an error (no data for that period); the error was sent back and the model answered from context. | Called the tool on a maintenance question, with a made-up period. The answer itself is correct and cited. |
+| **q3** user_c: office holiday policy 2026 | `doc2.txt#0`: "The office is closed on all federal holidays and the last week of December." Also `doc5.txt#0` (onboarding checklist). user_c only sees the two `all` docs. | Yes, `True`. Answer: closed on federal holidays and the last week of December [doc2.txt#0]. | Yes, not needed. `calculate_noi(property_id="None", period="2026")` returned an error (`'None'` is not an int). | Called the tool on a policy question, with a null id sent as the string `"None"`. The answer is correct and cited. |
+| **q4** user_a: Oak Hill Plaza NOI Q3 2026 | `doc4.txt#0`: "Q3 2026 financial summary for Oak Hill Plaza: total revenue $275,000, operating expenses $121,000." Also `doc6.txt#0`, `doc1.txt#0`. | No, `False`: the user saw "I could not get a verified result for this question." | Yes, correct. `calculate_noi(property_id="2", period="Q3-2026")` returned 154,000.00. The final number ($154,000) matches the tool value. | Worked the NOI out itself ("NOI = $275,000 - $121,000 = $154,000") instead of only narrating the tool result, which the task forbids. `shows_own_arithmetic()` caught it and the answer was withheld even though the number is right. Also leaked "property_id 2". |
+| **q5** user_b: Unit 12 security deposit (**the unanswerable query**) | `doc6.txt#0`: "Lease renewal notice, Oak Hill Plaza, Unit 12, effective November 2026. Tenant has elected to renew for a 12-month term at the existing rate." Also `doc3.txt#0`, `doc2.txt#0`. user_b may see doc6, but no document states a deposit amount. | Yes, `True`: a correct refusal, cited to [doc6.txt#0]. | Yes, not needed. `calculate_noi(property_id="2", period="Q3-2026")` returned 154,000.00 (Oak Hill's NOI), which the answer correctly ignores. | Declined correctly, but not with the exact "I don't know" it was told to use; it wrote a longer explanation instead. Also called the tool for no reason. |
+
+**The model did not behave perfectly on any of the 5 queries.** The shared failure is that
+llama3.2 requests `calculate_noi` on every query, including the four that do not ask for
+NOI, often with junk arguments (`"March 2026"`, `"None"`). The pipeline tolerates this:
+bad arguments come back as an error message, and a tool result only counts as evidence on
+NOI questions, so the NOI figure cannot be passed off as something else.
+
+Also seen in earlier runs with default sampling, so not in `eval/results.json`:
+
+- q1 once reported the tool's NOI ($254,000.00) as the revenue. The grounding check caught
+  it and the answer was withheld.
+- q3 once answered "I don't know" even though `doc2.txt#0` answers it. In 15 more q3 runs
+  that did not recur, but 3 of the 15 returned a fake tool call written as plain text
+  (`{"name": "get_holiday_schedule", ...}`), which was marked ungrounded. At temperature 0,
+  5 of 5 q3 runs answered correctly.
+- q4 once showed the same arithmetic as above, with a label in brackets
+  ("$275,000 (total revenue) - $121,000"), which the first version of the arithmetic check
+  missed. The pattern now allows that label.
+
 ## Task 4 — Design judgment (15 min)
 
 Two or three sentences each, in this README:
@@ -118,6 +151,24 @@ Two or three sentences each, in this README:
   prompt/context design or retrieval `top_k` if you were memory- or context-window-
   constrained rather than calling a hosted API freely?
 - What's the one part of your solution you're least confident is airtight, and why?
+
+### Task 4 answers
+
+**Memory- or context-constrained deployment.** I would add a reranking step: retrieve a
+wider candidate set cheaply by embedding similarity, then rerank with a small cross-encoder
+and pass only the top 1 or 2 chunks, so fewer and more relevant tokens reach the 27B model.
+I would also move the fixed instructions (tool rules, citation format, "I don't know"
+rule) out of the per-request user prompt into one system prompt that stays identical across
+requests, so the server can cache its KV state once and reuse it for every employee's
+request instead of re-processing it each time.
+
+**Least airtight part.** Identifying the claims in an answer. `_extract_claims()` guesses
+entities from capitalisation and digits, and `shows_own_arithmetic()` is a regex, so both
+depend on how the model happens to phrase and format things: a line break once glued two
+claims together, and a label in brackets once hid the arithmetic from the check. A claim
+written in lowercase, as words ("two hundred thousand"), or paraphrased past the fuzzy
+threshold can slip through or be wrongly rejected; an NER model or an LLM-based claim
+extractor would be the next step.
 
 
 ## Submitting
